@@ -224,7 +224,7 @@ function showTodayResult(card){
   const dd = String(d.getDate()).padStart(2, "0");
 
   const drawDateE1 = $("#drawDate");
-  if (drawDateE1){
+  if (drawDateE1) {
     drawDateE1.textContent = `抽到日期：${yyyy}-${mm}-${dd}`;
   }
   
