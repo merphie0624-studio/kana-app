@@ -218,6 +218,16 @@ function wireIntro(){
 function showTodayResult(card){
   $("#today-img").src = card.image;
   $("#today-img").alt = `${seriesLabel(card.series)} ${card.number}`;
+  const d = new Date();
+  const yyyy = d.getFullyYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  const drawDateE1 = $("#drawDate");
+  if (drawDateE1){
+    drawDateE1.textContent = '抽到日期：${yyyy}-${mm}-${dd}';
+  }
+  
   $("#today-result").classList.remove("hidden");
 }
 
