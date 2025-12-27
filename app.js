@@ -1,8 +1,9 @@
-/* 靠岸｜彼岸の島 - v0.1 (pure static) */
+/* 靠岸｜彼岸の島 - stable v1 */
+
 const STORAGE = {
   introSeen: "kaoan.introSeen.v1",
-  collected: "kaoan.collected.v1",      // { cardId: true }
-  notes: "kaoan.notes.v1",              // { cardId: { text, photoDataUrl, updatedAt } }
+  collected: "kaoan.collected.v2", // { cardId: { firstDate:"YYYY-MM-DD", count:number } }
+  notes: "kaoan.notes.v1",         // { cardId: { text, photoDataUrl, updatedAt } }
 };
 
 const state = {
@@ -26,46 +27,33 @@ function writeJSON(key, value){
 }
 
 function showView(id){
-  ["#view-intro","#view-today","#view-wall","#view-about"].forEach(v=>$(v).classList.add("hidden"));
-  $(id).classList.remove("hidden");
+  ["#view-intro","#view-today","#view-wall","#view-about"].forEach(v=>{
+    const el = $(v);
+    if(el) el.classList.add("hidden");
+  });
+  const target = $(id);
+  if(target) target.classList.remove("hidden");
 }
 
 function nowISO(){ return new Date().toISOString(); }
+function todayStr(){
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function getCollected(){ return readJSON(STORAGE.collected, {}); }
 function setCollected(obj){ writeJSON(STORAGE.collected, obj); }
 function getNotes(){ return readJSON(STORAGE.notes, {}); }
 function setNotes(obj){ writeJSON(STORAGE.notes, obj); }
 
-unction markCollected(cardId){
-  const c = getCollected();
-
-  // 今天日期 YYYY-MM-DD
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const todayStr = `${yyyy}-${mm}-${dd}`;
-
-  const prev = c[cardId];
-
-  // 第一次出現，或舊資料是 true
-  if(!prev || prev === true){
-    c[cardId] = {
-      firstDate: todayStr,
-      count: 1
-    };
-  }else{
-    // 已存在 → 次數 +1，保留第一次日期
-    c[cardId].firstDate = prev.firstDate || todayStr;
-    c[cardId].count = (prev.count || 0) + 1;
-  }
-
-  setCollected(c);
-}
-function pickRandom(cards){
-  const idx = Math.floor(Math.random() * cards.length);
-  return cards[idx];
+function seriesLabel(s){
+  if(s==="flow") return "Flow";
+  if(s==="free") return "Free";
+  if(s==="for") return "For";
+  return s;
 }
 
 async function loadManifest(){
@@ -76,11 +64,26 @@ async function loadManifest(){
   state.cards = data.cards || [];
 }
 
-function seriesLabel(s){
-  if(s==="flow") return "Flow";
-  if(s==="free") return "Free";
-  if(s==="for") return "For";
-  return s;
+function pickRandom(cards){
+  const idx = Math.floor(Math.random() * cards.length);
+  return cards[idx];
+}
+
+/** ✅ 這裡是：firstDate + count 的核心 */
+function markCollected(cardId){
+  const c = getCollected();
+  const t = todayStr();
+  const prev = c[cardId];
+
+  // 舊版相容：如果是 true 就轉成結構
+  if(!prev || prev === true){
+    c[cardId] = { firstDate: t, count: 1 };
+  }else{
+    c[cardId].firstDate = prev.firstDate || t;
+    c[cardId].count = (prev.count || 0) + 1;
+  }
+  setCollected(c);
+  return c[cardId];
 }
 
 function updateStats(){
@@ -149,6 +152,18 @@ function closeModal(){
   state.currentCardId = null;
 }
 
+function renderPhotoPreview(dataUrl){
+  const wrap = $("#photo-preview-wrap");
+  const img = $("#photo-preview");
+  if(dataUrl){
+    img.src = dataUrl;
+    wrap.classList.remove("hidden");
+  }else{
+    img.src = "";
+    wrap.classList.add("hidden");
+  }
+}
+
 function openCardModal(cardId){
   const card = state.cards.find(c=>c.id===cardId);
   if(!card) return;
@@ -163,31 +178,19 @@ function openCardModal(cardId){
   $("#record-locked").classList.toggle("hidden", isCollected);
   $("#record-form").classList.toggle("hidden", !isCollected);
 
-  // Fill existing note
   const notes = getNotes();
   const note = notes[cardId] || {text:"", photoDataUrl:null, updatedAt:null};
   $("#note-text").value = note.text || "";
   renderPhotoPreview(note.photoDataUrl);
 
-  // Meta
-  $("#note-meta").textContent = note.updatedAt ? `上次保存：${new Date(note.updatedAt).toLocaleString()}` : "";
+  $("#note-meta").textContent = note.updatedAt
+    ? `上次保存：${new Date(note.updatedAt).toLocaleString()}`
+    : "";
 
   openModal();
 }
 
-function renderPhotoPreview(dataUrl){
-  const wrap = $("#photo-preview-wrap");
-  const img = $("#photo-preview");
-  if(dataUrl){
-    img.src = dataUrl;
-    wrap.classList.remove("hidden");
-  }else{
-    img.src = "";
-    wrap.classList.add("hidden");
-  }
-}
-
-// Resize image before saving (avoid huge localStorage)
+// Resize image before saving
 async function fileToResizedDataUrl(file, maxW=900, quality=0.78){
   const blobUrl = URL.createObjectURL(file);
   const img = new Image();
@@ -204,7 +207,6 @@ async function fileToResizedDataUrl(file, maxW=900, quality=0.78){
   ctx.drawImage(img, 0, 0, w, h);
   URL.revokeObjectURL(blobUrl);
 
-  // store as jpeg
   return canvas.toDataURL("image/jpeg", quality);
 }
 
@@ -233,20 +235,17 @@ function wireIntro(){
   });
 }
 
-function showTodayResult(card){
+function showTodayResult(card, collectedMeta){
   $("#today-img").src = card.image;
   $("#today-img").alt = `${seriesLabel(card.series)} ${card.number}`;
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-
-  const drawDateE1 = $("#drawDate");
-  if (drawDateE1) {
-    drawDateE1.textContent = `抽到日期：${yyyy}-${mm}-${dd}`;
-  }
-  
   $("#today-result").classList.remove("hidden");
+
+  const t = todayStr();
+  const first = collectedMeta?.firstDate || t;
+  const count = collectedMeta?.count || 1;
+
+  $("#today-meta").textContent =
+    `抽到日期：${t}　｜　第一次相遇：${first}　｜　第 ${count} 次相遇`;
 }
 
 function hideTodayResult(){
@@ -255,10 +254,14 @@ function hideTodayResult(){
 
 function draw(series=null){
   const pool = series ? state.cards.filter(c=>c.series===series) : state.cards;
+  if(pool.length === 0){
+    alert("這個系列目前沒有卡片，請確認 cards_manifest.json 已填入。");
+    return;
+  }
   const card = pickRandom(pool);
-  markCollected(card.id);
-  state.currentCardId = card.id;
-  showTodayResult(card);
+  const meta = markCollected(card.id);
+  state.currentCardId = card.id; // ✅ 確保「回應這張卡」會指向正確卡
+  showTodayResult(card, meta);
 }
 
 function wireToday(){
@@ -274,8 +277,12 @@ function wireToday(){
     setTab("all");
   });
 
+  /** ✅ 你要修的：回應這張卡 → 開啟正確的寫下 Modal */
   $("#btn-save-note").addEventListener("click", ()=>{
-    if(!state.currentCardId) return;
+    if(!state.currentCardId){
+      alert("請先抽一張卡。");
+      return;
+    }
     openCardModal(state.currentCardId);
   });
 }
@@ -340,7 +347,6 @@ function wireWall(){
 
       renderPhotoPreview(dataUrl);
       $("#note-meta").textContent = `已保存：${new Date(existing.updatedAt).toLocaleString()}`;
-      // reset input so same file can be re-selected
       $("#photo-input").value = "";
     }catch(err){
       console.error(err);
@@ -399,7 +405,6 @@ function wireAbout(){
       if(data.collected) setCollected(data.collected);
       if(data.notes) setNotes(data.notes);
       alert("已匯入。");
-      // refresh wall stats if user goes there
     }catch(err){
       console.error(err);
       alert("匯入失敗：請確認檔案是從這個 App 匯出的 JSON。");
@@ -411,13 +416,13 @@ function wireAbout(){
 
 async function boot(){
   await loadManifest();
+
   wireNav();
   wireIntro();
   wireToday();
   wireWall();
   wireAbout();
 
-  // Decide start view
   const seen = localStorage.getItem(STORAGE.introSeen) === "true";
   if(seen){
     showView("#view-today");
@@ -425,7 +430,6 @@ async function boot(){
     showView("#view-intro");
   }
 
-  // default wall tab
   setTab("all");
   hideTodayResult();
 }
