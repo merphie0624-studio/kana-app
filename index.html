@@ -8,181 +8,100 @@
 </head>
 <body>
   <main id="app" class="app">
-    <!-- Intro -->
-    <section id="view-intro" class="view hidden" aria-label="迎接">
-      <div class="paper intro fade-in">
-        <pre class="intro-text">有些地方，  
-或許不想要被找到。  
 
-只是有時，  
-走久了，  
-累了，  
-就自然會出現。  
+    <!-- Intro（一定顯示，避免白畫面） -->
+    <section id="view-intro" class="view" aria-label="迎接">
+      <div class="paper intro">
+<pre class="intro-text">有些地方，
+或許不想要被找到。
 
-這不是終點，  
-也不是答案。  
+只是有時，
+走久了，
+累了，
+就自然會出現。
 
-只是讓我  
-可以稍微停下來，  
-歇腳的地方。  
+這不是終點，
+也不是答案。
 
-如果我願意，  
+只是讓我
+可以稍微停下來
+歇腳的地方。
+
+如果我願意，
 可以先靠岸。</pre>
         <button id="btn-into" class="btn primary" type="button">靠岸</button>
       </div>
     </section>
 
     <!-- Today -->
-    <section id="view-today" class="view hidden" aria-label="靠岸">
+    <section id="view-today" class="view hidden">
       <header class="topbar">
         <div class="brand">
           <div class="brand-title">靠岸</div>
           <div class="brand-sub">彼岸の島</div>
         </div>
         <nav class="nav">
-          <button class="btn ghost" id="nav-today" type="button" aria-current="page">今天</button>
-          <button class="btn ghost" id="nav-wall" type="button">卡片牆</button>
-          <button class="btn ghost" id="nav-about" type="button">關於</button>
+          <button class="btn ghost" id="nav-today">今天</button>
+          <button class="btn ghost" id="nav-wall">卡片牆</button>
+          <button class="btn ghost" id="nav-about">關於</button>
         </nav>
       </header>
 
       <div class="panel">
         <h1 class="question">今天的我，想要接住自己什麼？</h1>
-        <p class="hint">可以抽一張卡，或先在這裡停一下。</p>
 
-        <div class="actions">
-          <button class="btn primary" id="draw-any" type="button">抽一張卡（全部系列）</button>
-          <div class="seg">
-            <button class="btn" data-draw-series="flow" type="button">抽 Flow</button>
-            <button class="btn" data-draw-series="free" type="button">抽 Free</button>
-            <button class="btn" data-draw-series="for" type="button">抽 For</button>
-          </div>
-        </div>
+        <button class="btn primary" id="draw-any">抽一張卡</button>
 
-        <section id="today-result" class="result hidden" aria-label="抽到的卡">
-          <div class="card-wrap">
-            <img id="today-img" class="card-img" alt="抽到的卡片" />
-          </div>
+        <section id="today-result" class="hidden">
+          <img id="today-img" class="card-img" />
           <div id="drawDate" class="draw-date"></div>
+
           <div class="result-actions">
-            <button class="btn" id="btn-save-note" type="button">回應這張卡</button>
-            <button class="btn ghost" id="btn-open-wall" type="button">我的故事強</button>
-            <button class="btn ghost" id="btn-draw-again" type="button">再次相遇</button>
+            <button class="btn" id="btn-save-note">回應這張卡</button>
+            <button class="btn ghost" id="btn-open-wall">我的故事牆</button>
+            <button class="btn ghost" id="btn-draw-again">再次相遇</button>
           </div>
         </section>
       </div>
     </section>
 
     <!-- Wall -->
-    <section id="view-wall" class="view hidden" aria-label="卡片牆">
+    <section id="view-wall" class="view hidden">
       <header class="topbar">
         <div class="brand">
           <div class="brand-title">卡片牆</div>
-          <div class="brand-sub">收集・歸位</div>
         </div>
         <nav class="nav">
-          <button class="btn ghost" id="nav2-today" type="button">今天</button>
-          <button class="btn ghost" id="nav2-wall" type="button" aria-current="page">卡片牆</button>
-          <button class="btn ghost" id="nav2-about" type="button">關於</button>
+          <button class="btn ghost" id="nav2-today">今天</button>
+          <button class="btn ghost" id="nav2-wall">卡片牆</button>
+          <button class="btn ghost" id="nav2-about">關於</button>
         </nav>
       </header>
 
       <div class="panel">
-        <div class="tabs" role="tablist" aria-label="系列">
-          <button class="tab active" data-tab="all" type="button" role="tab" aria-selected="true">全部</button>
-          <button class="tab" data-tab="flow" type="button" role="tab">Flow</button>
-          <button class="tab" data-tab="free" type="button" role="tab">Free</button>
-          <button class="tab" data-tab="for" type="button" role="tab">For</button>
-        </div>
-
-        <div class="stats" id="stats"></div>
-
-        <div id="grid" class="grid" aria-label="卡片列表"></div>
-      </div>
-
-      <!-- Card modal -->
-      <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="卡片">
-        <div class="modal-card">
-          <button id="modal-close" class="icon-btn" type="button" aria-label="關閉">✕</button>
-          <div class="modal-body">
-            <div class="card-wrap">
-              <img id="modal-img" class="card-img" alt="卡片" />
-            </div>
-
-            <div class="record">
-              <div class="record-head">
-                <div class="record-title">寫下</div>
-                <div class="record-sub">你也可以留白，有時，留白是另一種給自己的禮物。</div>
-              </div>
-
-              <div id="record-locked" class="locked hidden">
-                這張卡還沒被抽到。<br/>
-                你可以先把它放在心裡，或回到「今天」再抽一次。
-              </div>
-
-              <div id="record-form" class="record-form hidden">
-                <label class="field">
-                  <div class="label">文字</div>
-                  <textarea id="note-text" rows="5" placeholder="今天的感受、感恩的人事物、顯化的小確幸…"></textarea>
-                </label>
-
-                <label class="field">
-                  <div class="label">照片（可選）</div>
-                  <input id="photo-input" type="file" accept="image/*" />
-                  <div class="small">會自動縮小後存放在你的裝置上（不會上傳到網路）。</div>
-                </label>
-
-                <div id="photo-preview-wrap" class="photo hidden">
-                  <img id="photo-preview" alt="照片預覽" />
-                  <button id="photo-remove" class="btn ghost" type="button">移除照片</button>
-                </div>
-
-                <div class="row">
-                  <button id="note-save" class="btn primary" type="button">保存</button>
-                  <button id="note-clear" class="btn" type="button">清除這張卡的內容</button>
-                </div>
-
-                <div class="small" id="note-meta"></div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-        <div class="backdrop" id="modal-backdrop"></div>
+        <div id="stats"></div>
+        <div id="grid" class="grid"></div>
       </div>
     </section>
 
     <!-- About -->
-    <section id="view-about" class="view hidden" aria-label="關於">
+    <section id="view-about" class="view hidden">
       <header class="topbar">
         <div class="brand">
           <div class="brand-title">關於</div>
-          <div class="brand-sub">靠岸｜彼岸の島</div>
         </div>
         <nav class="nav">
-          <button class="btn ghost" id="nav3-today" type="button">今天</button>
-          <button class="btn ghost" id="nav3-wall" type="button">卡片牆</button>
-          <button class="btn ghost" id="nav3-about" type="button" aria-current="page">關於</button>
+          <button class="btn ghost" id="nav3-today">今天</button>
+          <button class="btn ghost" id="nav3-wall">卡片牆</button>
+          <button class="btn ghost" id="nav3-about">關於</button>
         </nav>
       </header>
 
       <div class="panel">
-        <h2>這是一個很小的地方</h2>
-        <p>你可以在這裡抽一張卡，慢慢收集，並在卡片裡寫下自己的紀錄。</p>
-        <p class="small">所有內容都只會保存在你的裝置（瀏覽器）裡。清除瀏覽器資料會一起消失。</p>
-
-        <hr class="sep" />
-
-        <div class="row">
-          <button id="reset-intro" class="btn" type="button">重看迎接畫面（只影響這台裝置）</button>
-          <button id="export-data" class="btn ghost" type="button">匯出我的紀錄（JSON）</button>
-          <label class="btn ghost" for="import-data" style="cursor:pointer;">匯入紀錄（JSON）</label>
-          <input id="import-data" type="file" accept="application/json" class="hidden" />
-        </div>
-
-        <p class="small">匯出/匯入是為了之後換手機或備份用。初期先用簡單方式。</p>
+        <p>這是一個可以暫時靠岸的小地方。</p>
       </div>
     </section>
+
   </main>
 
   <script src="app.js"></script>
