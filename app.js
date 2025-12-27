@@ -37,14 +37,32 @@ function setCollected(obj){ writeJSON(STORAGE.collected, obj); }
 function getNotes(){ return readJSON(STORAGE.notes, {}); }
 function setNotes(obj){ writeJSON(STORAGE.notes, obj); }
 
-function markCollected(cardId){
+unction markCollected(cardId){
   const c = getCollected();
-  if(!c[cardId]){
-    c[cardId] = true;
-    setCollected(c);
-  }
-}
 
+  // 今天日期 YYYY-MM-DD
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  const prev = c[cardId];
+
+  // 第一次出現，或舊資料是 true
+  if(!prev || prev === true){
+    c[cardId] = {
+      firstDate: todayStr,
+      count: 1
+    };
+  }else{
+    // 已存在 → 次數 +1，保留第一次日期
+    c[cardId].firstDate = prev.firstDate || todayStr;
+    c[cardId].count = (prev.count || 0) + 1;
+  }
+
+  setCollected(c);
+}
 function pickRandom(cards){
   const idx = Math.floor(Math.random() * cards.length);
   return cards[idx];
