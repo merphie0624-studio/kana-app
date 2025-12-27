@@ -1,0 +1,239 @@
+{
+  "app": "靠岸｜彼岸の島",
+  "cards": [
+    {
+      "id": "flow-1",
+      "series": "flow",
+      "number": 1,
+      "image": "cards/flow/flow1.png"
+    },
+    {
+      "id": "flow-2",
+      "series": "flow",
+      "number": 2,
+      "image": "cards/flow/flow2.png"
+    },
+    {
+      "id": "flow-3",
+      "series": "flow",
+      "number": 3,
+      "image": "cards/flow/flow3.png"
+    },
+    {
+      "id": "flow-4",
+      "series": "flow",
+      "number": 4,
+      "image": "cards/flow/flow4.png"
+    },
+    {
+      "id": "flow-5",
+      "series": "flow",
+      "number": 5,
+      "image": "cards/flow/flow5.png"
+    },
+    {
+      "id": "flow-6",
+      "series": "flow",
+      "number": 6,
+      "image": "cards/flow/flow6.png"
+    },
+    {
+      "id": "flow-7",
+      "series": "flow",
+      "number": 7,
+      "image": "cards/flow/flow7.png"
+    },
+    {
+      "id": "flow-8",
+      "series": "flow",
+      "number": 8,
+      "image": "cards/flow/flow8.png"
+    },
+    {
+      "id": "flow-9",
+      "series": "flow",
+      "number": 9,
+      "image": "cards/flow/flow9.png"
+    },
+    {
+      "id": "flow-10",
+      "series": "flow",
+      "number": 10,
+      "image": "cards/flow/flow10.png"
+    },
+    {
+      "id": "flow-11",
+      "series": "flow",
+      "number": 11,
+      "image": "cards/flow/flow11.png"
+    },
+    {
+      "id": "flow-12",
+      "series": "flow",
+      "number": 12,
+      "image": "cards/flow/flow12.png"
+    },
+    {
+      "id": "flow-13",
+      "series": "flow",
+      "number": 13,
+      "image": "cards/flow/flow13.png"
+    },
+    {
+      "id": "free-1",
+      "series": "free",
+      "number": 1,
+      "image": "cards/free/free1.png"
+    },
+    {
+      "id": "free-2",
+      "series": "free",
+      "number": 2,
+      "image": "cards/free/free2.png"
+    },
+    {
+      "id": "free-3",
+      "series": "free",
+      "number": 3,
+      "image": "cards/free/free3.png"
+    },
+    {
+      "id": "free-4",
+      "series": "free",
+      "number": 4,
+      "image": "cards/free/free4.png"
+    },
+    {
+      "id": "free-5",
+      "series": "free",
+      "number": 5,
+      "image": "cards/free/free5.png"
+    },
+    {
+      "id": "free-6",
+      "series": "free",
+      "number": 6,
+      "image": "cards/free/free6.png"
+    },
+    {
+      "id": "free-7",
+      "series": "free",
+      "number": 7,
+      "image": "cards/free/free7.png"
+    },
+    {
+      "id": "free-8",
+      "series": "free",
+      "number": 8,
+      "image": "cards/free/free8.png"
+    },
+    {
+      "id": "free-9",
+      "series": "free",
+      "number": 9,
+      "image": "cards/free/free9.png"
+    },
+    {
+      "id": "free-10",
+      "series": "free",
+      "number": 10,
+      "image": "cards/free/free10.png"
+    },
+    {
+      "id": "free-11",
+      "series": "free",
+      "number": 11,
+      "image": "cards/free/free11.png"
+    },
+    {
+      "id": "free-12",
+      "series": "free",
+      "number": 12,
+      "image": "cards/free/free12.png"
+    },
+    {
+      "id": "free-13",
+      "series": "free",
+      "number": 13,
+      "image": "cards/free/free13.png"
+    },
+    {
+      "id": "for-1",
+      "series": "for",
+      "number": 1,
+      "image": "cards/for/for1.png"
+    },
+    {
+      "id": "for-2",
+      "series": "for",
+      "number": 2,
+      "image": "cards/for/for2.png"
+    },
+    {
+      "id": "for-3",
+      "series": "for",
+      "number": 3,
+      "image": "cards/for/for3.png"
+    },
+    {
+      "id": "for-4",
+      "series": "for",
+      "number": 4,
+      "image": "cards/for/for4.png"
+    },
+    {
+      "id": "for-5",
+      "series": "for",
+      "number": 5,
+      "image": "cards/for/for5.png"
+    },
+    {
+      "id": "for-6",
+      "series": "for",
+      "number": 6,
+      "image": "cards/for/for6.png"
+    },
+    {
+      "id": "for-7",
+      "series": "for",
+      "number": 7,
+      "image": "cards/for/for7.png"
+    },
+    {
+      "id": "for-8",
+      "series": "for",
+      "number": 8,
+      "image": "cards/for/for8.png"
+    },
+    {
+      "id": "for-9",
+      "series": "for",
+      "number": 9,
+      "image": "cards/for/for9.png"
+    },
+    {
+      "id": "for-10",
+      "series": "for",
+      "number": 10,
+      "image": "cards/for/for10.png"
+    },
+    {
+      "id": "for-11",
+      "series": "for",
+      "number": 11,
+      "image": "cards/for/for11.png"
+    },
+    {
+      "id": "for-12",
+      "series": "for",
+      "number": 12,
+      "image": "cards/for/for12.png"
+    },
+    {
+      "id": "for-13",
+      "series": "for",
+      "number": 13,
+      "image": "cards/for/for13.png"
+    }
+  ]
+}
