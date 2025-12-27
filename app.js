@@ -225,7 +225,7 @@ function showTodayResult(card){
 
   const drawDateE1 = $("#drawDate");
   if (drawDateE1){
-    drawDateE1.textContent = '抽到日期：${yyyy}-${mm}-${dd}';
+    drawDateE1.textContent = `抽到日期：${yyyy}-${mm}-${dd}`;
   }
   
   $("#today-result").classList.remove("hidden");
