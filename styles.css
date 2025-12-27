@@ -202,3 +202,9 @@ input[type="file"]{width:100%;}
   .modal-body{grid-template-columns: 420px 1fr; align-items:start;}
   .record{border-top:0; border-left:1px solid var(--line); padding-top:0; padding-left:16px;}
 }
+.draw-date{
+   margin-top: 10px;
+   margin-bottom: 40px;
+   font-size: 13px;
+   color: var(--muted);
+   text-align: center;}
