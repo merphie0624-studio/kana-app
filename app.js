@@ -219,7 +219,7 @@ function showTodayResult(card){
   $("#today-img").src = card.image;
   $("#today-img").alt = `${seriesLabel(card.series)} ${card.number}`;
   const d = new Date();
-  const yyyy = d.getFullyYear();
+  const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
 
