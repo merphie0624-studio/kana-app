@@ -1,13 +1,7 @@
-/* kana-app: mobile-first single page app (no framework) */
+/* kana-app: mobile-first single page, vanilla JS */
 
-const STORAGE_KEY = "kana_records_v1";
-const INTRO_SEEN_KEY = "kana_intro_seen_v1";
-
-// IMPORTANT:
-// If you have a gold tree back image, put it at: assets/tree-gold.png
-// For locked/uncollected cards (wall), we show the back side:
-// If you already have a back image in cards/, set it here:
-const FALLBACK_BACK_IMAGE = "assets/tree-gold.png"; // optional
+const STORAGE_KEY = "kana_records_v2";
+const INTRO_SEEN_KEY = "kana_intro_seen_v2";
 
 const views = {
   intro: document.getElementById("view-intro"),
@@ -16,552 +10,572 @@ const views = {
   about: document.getElementById("view-about"),
 };
 
-const introPaper = document.getElementById("introPaper");
-const btnInto = document.getElementById("btn-into");
+function showView(name){
+  Object.values(views).forEach(v => v.classList.add("hidden"));
+  views[name].classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
 
-const drawAny = document.getElementById("draw-any");
-const todayImg = document.getElementById("today-img");
-const drawDateEl = document.getElementById("drawDate");
-const todayResult = document.getElementById("today-result");
-const todayLoading = document.getElementById("today-loading");
-const resultActions = document.getElementById("result-actions");
+function $(id){ return document.getElementById(id); }
 
-const btnSaveNote = document.getElementById("btn-save-note");
-const btnOpenWall = document.getElementById("btn-open-wall");
-const btnDrawAgain = document.getElementById("btn-draw-again");
+const toastEl = $("toast");
+function toast(msg){
+  if(!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.classList.remove("hidden");
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(()=> toastEl.classList.add("hidden"), 1200);
+}
 
-const gridEl = document.getElementById("grid");
-const statsEl = document.getElementById("stats");
+/* --------- data ---------- */
 
-const tabs = Array.from(document.querySelectorAll(".tab"));
+async function loadManifest(){
+  // cards_manifest.json should exist in repo root
+  const res = await fetch("cards_manifest.json", { cache: "no-store" });
+  if(!res.ok) throw new Error("cards_manifest.json not found");
+  const data = await res.json();
+  if(!Array.isArray(data.cards)) throw new Error("manifest format invalid");
+  return data.cards;
+}
 
-const modal = document.getElementById("modal");
-const modalImg = document.getElementById("modal-img");
-const modalClose = document.getElementById("modal-close");
-const modalBackdrop = document.getElementById("modal-backdrop");
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { draws:{}, notes:{}, photos:{}, emoji:{} };
+    const obj = JSON.parse(raw);
+    return {
+      draws: obj.draws || {},
+      notes: obj.notes || {},
+      photos: obj.photos || {},
+      emoji: obj.emoji || {},
+    };
+  }catch{
+    return { draws:{}, notes:{}, photos:{}, emoji:{} };
+  }
+}
+function saveStore(store){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
 
-const recordLocked = document.getElementById("record-locked");
-const recordForm = document.getElementById("record-form");
-const noteText = document.getElementById("note-text");
-const noteMeta = document.getElementById("note-meta");
-const noteSave = document.getElementById("note-save");
-const noteClear = document.getElementById("note-clear");
-
-const photoInput = document.getElementById("photo-input");
-const photoPreviewWrap = document.getElementById("photo-preview-wrap");
-const photoPreview = document.getElementById("photo-preview");
-const photoRemove = document.getElementById("photo-remove");
-
-const exportBtn = document.getElementById("export-data");
-const importInput = document.getElementById("import-data");
-const resetIntroBtn = document.getElementById("reset-intro");
-
-const drawer = document.getElementById("drawer");
-const hamburger = document.getElementById("hamburger");
-const hamburger2 = document.getElementById("hamburger2");
-const hamburger3 = document.getElementById("hamburger3");
-const drawerClose = document.getElementById("drawer-close");
-const drawerBackdrop = document.getElementById("drawer-backdrop");
-const navStory = document.getElementById("nav-story");
-const navToday = document.getElementById("nav-today");
-const navWall = document.getElementById("nav-wall");
-const navAbout = document.getElementById("nav-about");
-
-let cards = [];
-let activeTab = "all";
-let lastDrawnCardId = null;
-
-// ----- Utilities
-function todayISO() {
+function todayISO(){
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${dd}`;
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+/* --------- intro + boat ---------- */
+
+const btnInto = $("btn-into");
+const boatLayer = $("boat-layer");
+
+async function playBoatThenEnter(){
+  // 船「不要太快看不到」：用 2.6s + 0.5s buffer
+  boatLayer.classList.remove("hidden");
+  boatLayer.classList.add("play");
+  // 同時讓 intro 文字稍微淡出（像退潮）
+  views.intro.querySelector(".paper.intro")?.classList.add("fade-out-soft");
+
+  await new Promise(r => setTimeout(r, 3100));
+  boatLayer.classList.remove("play");
+  boatLayer.classList.add("hidden");
 }
 
-function safeJSONParse(str, fallback) {
-  try { return JSON.parse(str); } catch { return fallback; }
-}
-
-function loadRecords() {
-  return safeJSONParse(localStorage.getItem(STORAGE_KEY) || "{}", {});
-}
-
-function saveRecords(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function markIntroSeen() {
+function markIntroSeen(){
   localStorage.setItem(INTRO_SEEN_KEY, "1");
 }
-
-function resetIntroSeen() {
+function resetIntroSeen(){
   localStorage.removeItem(INTRO_SEEN_KEY);
 }
 
-function isIntroSeen() {
-  return localStorage.getItem(INTRO_SEEN_KEY) === "1";
+/* --------- UI wiring ---------- */
+
+function bindNav(){
+  // desktop nav
+  $("nav-today")?.addEventListener("click", ()=> showView("today"));
+  $("nav-wall")?.addEventListener("click", ()=> { showView("wall"); renderWall(); });
+  $("nav-about")?.addEventListener("click", ()=> showView("about"));
+
+  $("nav2-today")?.addEventListener("click", ()=> showView("today"));
+  $("nav2-wall")?.addEventListener("click", ()=> { showView("wall"); renderWall(); });
+  $("nav2-about")?.addEventListener("click", ()=> showView("about"));
+
+  $("nav3-today")?.addEventListener("click", ()=> showView("today"));
+  $("nav3-wall")?.addEventListener("click", ()=> { showView("wall"); renderWall(); });
+  $("nav3-about")?.addEventListener("click", ()=> showView("about"));
+
+  // mobile drawer
+  const burgerIds = ["burger","burger2","burger3"];
+  burgerIds.forEach(id=>{
+    $(id)?.addEventListener("click", openDrawer);
+  });
+  $("drawer-close")?.addEventListener("click", closeDrawer);
+  $("drawer-backdrop")?.addEventListener("click", closeDrawer);
+
+  document.querySelectorAll(".drawer-item").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const go = btn.getAttribute("data-go");
+      closeDrawer();
+      if(go==="today") showView("today");
+      if(go==="wall"){ showView("wall"); renderWall(); }
+      if(go==="about") showView("about");
+    });
+  });
 }
 
-function showView(name) {
-  Object.values(views).forEach(v => v.classList.add("hidden"));
-  views[name].classList.remove("hidden");
-  // scroll top for app-like feel
-  views[name].scrollTop = 0;
+function openDrawer(){
+  const d = $("drawer");
+  d?.classList.remove("hidden");
+  d?.setAttribute("aria-hidden","false");
+}
+function closeDrawer(){
+  const d = $("drawer");
+  d?.classList.add("hidden");
+  d?.setAttribute("aria-hidden","true");
 }
 
-function openDrawer() {
-  drawer.classList.remove("hidden");
-}
-function closeDrawer() {
-  drawer.classList.add("hidden");
-}
+/* --------- draw logic ---------- */
 
-function openModal() {
-  modal.classList.remove("hidden");
-}
-function closeModal() {
-  modal.classList.add("hidden");
-}
+let MANIFEST = [];
+let store = loadStore();
 
-// ----- Cards loading
-async function loadCardsManifest() {
-  const res = await fetch("cards_manifest.json", { cache: "no-store" });
-  if (!res.ok) throw new Error("cards_manifest.json 讀取失敗");
-  const data = await res.json();
-  // Expected: { cards: [ {id, series, title?, img } ... ] } or array
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data.cards)) return data.cards;
-  throw new Error("cards_manifest.json 格式不符合");
+const drawAnyBtn = $("draw-any");
+const todayResult = $("today-result");
+const todayImg = $("today-img");
+const todayMeta = $("today-meta");
+const resultActions = $("result-actions");
+
+const btnSaveNote = $("btn-save-note");
+const btnOpenWall = $("btn-open-wall");
+const btnDrawAgain = $("btn-draw-again");
+
+function pickRandom(list){
+  return list[Math.floor(Math.random()*list.length)];
 }
 
-function cardFrontSrc(card) {
-  // try common keys
-  return card.img || card.image || card.front || card.src;
+function recordDraw(cardId){
+  const d = todayISO();
+  if(!store.draws[cardId]){
+    store.draws[cardId] = { first: d, last: d, count: 1 };
+  }else{
+    store.draws[cardId].last = d;
+    store.draws[cardId].count = (store.draws[cardId].count || 0) + 1;
+  }
+  saveStore(store);
 }
 
-function cardBackSrc(card) {
-  // if manifest has back, use it, else fallback
-  return card.back || card.backImg || FALLBACK_BACK_IMAGE;
-}
-
-function isCollected(cardId, records) {
-  return Boolean(records[cardId] && records[cardId].firstSeen);
-}
-
-function ensureRecord(cardId, records) {
-  if (!records[cardId]) records[cardId] = {};
-  return records[cardId];
-}
-
-// ----- Intro sequence (boat then paper)
-function runIntroSequence() {
-  // After ~2.6s sail animation, show the paper
-  setTimeout(() => {
-    introPaper.classList.remove("hidden");
-  }, 2600);
-}
-
-// ----- Drawing logic
-function pickRandom(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-function filterBySeries(series) {
-  if (series === "all") return cards;
-  return cards.filter(c => String(c.series).toLowerCase() === series);
-}
-
-async function drawCard(series = "all") {
-  const pool = filterBySeries(series);
-  if (!pool.length) return;
-
-  // loading
-  todayResult.classList.add("hidden");
-  resultActions.classList.add("hidden");
-  todayLoading.classList.remove("hidden");
-
-  // pick
-  const card = pickRandom(pool);
-  lastDrawnCardId = String(card.id);
-
-  // record firstSeen/drawCount
-  const records = loadRecords();
-  const rec = ensureRecord(lastDrawnCardId, records);
-
-  const now = todayISO();
-  rec.drawCount = (rec.drawCount || 0) + 1;
-  rec.lastSeen = now;
-  if (!rec.firstSeen) rec.firstSeen = now;
-
-  saveRecords(records);
-
-  // wait 5 seconds (as requested)
-  await sleep(5000);
-
-  // show result
-  todayImg.src = cardFrontSrc(card);
-  const drawInfo = `抽到日期：${now}　｜　第一次相遇：${rec.firstSeen}`;
-  drawDateEl.textContent = drawInfo;
-
-  todayLoading.classList.add("hidden");
+function renderTodayResult(card){
+  todayImg.src = card.image;
+  todayImg.onload = () => {}; // keep
   todayResult.classList.remove("hidden");
 
-  // buttons appear AFTER the "停一下"
-  resultActions.classList.remove("hidden");
+  const rec = store.draws[card.id];
+  const first = rec?.first || todayISO();
+  const last  = rec?.last  || todayISO();
+  const count = rec?.count || 1;
+  todayMeta.textContent = `抽到日期：${todayISO()} ｜ 第一次相遇：${first} ｜ 最近一次：${last} ｜ 相遇次數：${count}`;
+
+  // 「抽完等一下再浮現三個按鈕」
+  resultActions.classList.add("hidden");
+  setTimeout(()=> resultActions.classList.remove("hidden"), 700);
+
+  // 記住目前卡
+  window.__CURRENT_CARD__ = card;
 }
 
-function bindSeriesChips() {
-  document.querySelectorAll(".series-chip").forEach(btn => {
-    const s = btn.getAttribute("data-series");
-    if (!s) return;
-    btn.addEventListener("click", () => {
-      drawCard(s);
-    });
-  });
-}
-
-// ----- Wall rendering
-function computeStats(records) {
-  const total = cards.length;
-  const collected = cards.filter(c => isCollected(String(c.id), records)).length;
-  const pct = total ? Math.round((collected / total) * 100) : 0;
-  return { total, collected, pct };
-}
-
-function renderWall() {
-  const records = loadRecords();
-
-  const { total, collected, pct } = computeStats(records);
-  statsEl.textContent = `已收集 ${collected} / ${total}（${pct}%）`;
-
-  const filtered = filterBySeries(activeTab);
-  gridEl.innerHTML = "";
-
-  filtered.forEach(card => {
-    const id = String(card.id);
-    const collected = isCollected(id, records);
-
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "grid-item";
-    item.setAttribute("aria-label", `卡片 ${id}`);
-
-    const img = document.createElement("img");
-    img.alt = "卡片";
-    img.src = collected ? cardFrontSrc(card) : cardBackSrc(card);
-
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.textContent = `${card.series ?? ""} ${card.no ?? card.index ?? card.title ?? ""}`.trim() || `#${id}`;
-
-    item.appendChild(img);
-    item.appendChild(badge);
-
-    if (!collected) {
-      const tag = document.createElement("div");
-      tag.className = "lockedTag";
-      tag.textContent = "未抽到";
-      item.appendChild(tag);
-    }
-
-    item.addEventListener("click", () => {
-      openCardModal(id);
-    });
-
-    gridEl.appendChild(item);
-  });
-}
-
-// ----- Modal record
-let modalCardId = null;
-
-function openCardModal(cardId) {
-  modalCardId = String(cardId);
-  const card = cards.find(c => String(c.id) === modalCardId);
-  if (!card) return;
-
-  const records = loadRecords();
-  const collected = isCollected(modalCardId, records);
-
-  modalImg.src = collected ? cardFrontSrc(card) : cardBackSrc(card);
-
-  // show/hide record form
-  if (!collected) {
-    recordLocked.classList.remove("hidden");
-    recordForm.classList.add("hidden");
-  } else {
-    recordLocked.classList.add("hidden");
-    recordForm.classList.remove("hidden");
-
-    const rec = ensureRecord(modalCardId, records);
-
-    noteText.value = rec.text || "";
-    if (rec.photo) {
-      photoPreview.src = rec.photo;
-      photoPreviewWrap.classList.remove("hidden");
-    } else {
-      photoPreviewWrap.classList.add("hidden");
-      photoPreview.src = "";
-    }
-
-    noteMeta.textContent = metaText(rec);
-  }
-
-  openModal();
-}
-
-function metaText(rec) {
-  const parts = [];
-  if (rec.mood) parts.push(`心情：${rec.mood}`);
-  if (rec.firstSeen) parts.push(`第一次相遇：${rec.firstSeen}`);
-  if (rec.lastSeen) parts.push(`最近一次：${rec.lastSeen}`);
-  if (rec.drawCount) parts.push(`相遇次數：${rec.drawCount}`);
-  return parts.join("　｜　");
-}
-
-// mood pick
-document.querySelectorAll(".mood").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const mood = btn.getAttribute("data-mood");
-    if (!modalCardId) return;
-
-    const records = loadRecords();
-    const rec = ensureRecord(modalCardId, records);
-    rec.mood = mood;
-    rec.lastEdited = todayISO();
-    saveRecords(records);
-
-    noteMeta.textContent = metaText(rec);
-  });
-});
-
-noteSave.addEventListener("click", () => {
-  if (!modalCardId) return;
-
-  const records = loadRecords();
-  const rec = ensureRecord(modalCardId, records);
-
-  rec.text = (noteText.value || "").trim();
-  rec.lastEdited = todayISO();
-
-  saveRecords(records);
-  noteMeta.textContent = metaText(rec);
-});
-
-noteClear.addEventListener("click", () => {
-  if (!modalCardId) return;
-
-  const records = loadRecords();
-  const rec = ensureRecord(modalCardId, records);
-
-  delete rec.text;
-  delete rec.photo;
-  delete rec.mood;
-  rec.lastEdited = todayISO();
-
-  saveRecords(records);
-
-  noteText.value = "";
-  photoPreviewWrap.classList.add("hidden");
-  photoPreview.src = "";
-  noteMeta.textContent = metaText(rec);
-});
-
-photoInput.addEventListener("change", async (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (!file || !modalCardId) return;
-
-  const dataUrl = await resizeImageToDataURL(file, 1280);
-
-  const records = loadRecords();
-  const rec = ensureRecord(modalCardId, records);
-  rec.photo = dataUrl;
-  rec.lastEdited = todayISO();
-  saveRecords(records);
-
-  photoPreview.src = dataUrl;
-  photoPreviewWrap.classList.remove("hidden");
-  noteMeta.textContent = metaText(rec);
-
-  // reset input
-  photoInput.value = "";
-});
-
-photoRemove.addEventListener("click", () => {
-  if (!modalCardId) return;
-
-  const records = loadRecords();
-  const rec = ensureRecord(modalCardId, records);
-  delete rec.photo;
-  rec.lastEdited = todayISO();
-  saveRecords(records);
-
-  photoPreviewWrap.classList.add("hidden");
-  photoPreview.src = "";
-  noteMeta.textContent = metaText(rec);
-});
-
-async function resizeImageToDataURL(file, maxSide) {
-  const img = await fileToImage(file);
-  const { width, height } = img;
-
-  let targetW = width;
-  let targetH = height;
-
-  if (Math.max(width, height) > maxSide) {
-    const scale = maxSide / Math.max(width, height);
-    targetW = Math.round(width * scale);
-    targetH = Math.round(height * scale);
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetW;
-  canvas.height = targetH;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, targetW, targetH);
-
-  return canvas.toDataURL("image/jpeg", 0.85);
-}
-
-function fileToImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-// ----- Navigation helpers
-function goIntro() {
-  showView("intro");
-}
-function goToday() {
-  showView("today");
-}
-function goWall() {
-  showView("wall");
-  renderWall();
-}
-function goAbout() {
-  showView("about");
-}
-
-// ----- Buttons wiring
-btnInto.addEventListener("click", () => {
-  markIntroSeen();
-  goToday();
-});
-
-drawAny.addEventListener("click", () => drawCard("all"));
-
-btnDrawAgain.addEventListener("click", () => drawCard("all"));
-
-btnOpenWall.addEventListener("click", () => {
-  goWall();
-  if (lastDrawnCardId) {
-    // open modal for last drawn
-    setTimeout(() => openCardModal(lastDrawnCardId), 200);
-  }
-});
-
-btnSaveNote.addEventListener("click", () => {
-  // Requirement: "回應這張卡" must go to the correct writing place
-  // => open modal with record form directly for last drawn
-  if (!lastDrawnCardId) return;
-  goWall();
-  setTimeout(() => openCardModal(lastDrawnCardId), 200);
-});
-
-tabs.forEach(t => {
-  t.addEventListener("click", () => {
-    tabs.forEach(x => x.classList.remove("active"));
-    t.classList.add("active");
-    activeTab = t.getAttribute("data-tab") || "all";
-    renderWall();
-  });
-});
-
-// Modal close
-modalClose.addEventListener("click", closeModal);
-modalBackdrop.addEventListener("click", closeModal);
-
-// Drawer
-[hamburger, hamburger2, hamburger3].forEach(btn => {
-  if (!btn) return;
-  btn.addEventListener("click", openDrawer);
-});
-drawerClose.addEventListener("click", closeDrawer);
-drawerBackdrop.addEventListener("click", closeDrawer);
-
-navStory.addEventListener("click", () => { closeDrawer(); goIntro(); });
-navToday.addEventListener("click", () => { closeDrawer(); goToday(); });
-navWall.addEventListener("click", () => { closeDrawer(); goWall(); });
-navAbout.addEventListener("click", () => { closeDrawer(); goAbout(); });
-
-// About tools
-resetIntroBtn.addEventListener("click", () => {
-  resetIntroSeen();
-  alert("已重置。重新整理後會看到迎接畫面。");
-});
-
-exportBtn.addEventListener("click", () => {
-  const data = loadRecords();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "kana-records.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-});
-
-importInput.addEventListener("change", async (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-
-  const text = await file.text();
-  const incoming = safeJSONParse(text, null);
-  if (!incoming || typeof incoming !== "object") {
-    alert("匯入失敗：檔案不是有效的 JSON");
+async function doDraw(series=null){
+  const pool = series ? MANIFEST.filter(c => c.series === series) : MANIFEST.slice();
+  if(pool.length === 0){
+    toast("這個系列目前還沒有卡");
     return;
   }
-  saveRecords(incoming);
-  alert("匯入成功。");
-  e.target.value = "";
-});
+  // 小小停頓，讓抽卡感不要太突兀
+  toast("…");
+  await new Promise(r=>setTimeout(r, 220));
 
-// ----- Boot
-(async function boot() {
-  // Intro always runs; if already seen, go today directly
-  showView("intro");
-  runIntroSequence();
+  const card = pickRandom(pool);
+  recordDraw(card.id);
+  renderTodayResult(card);
+}
 
-  try {
-    cards = await loadCardsManifest();
-  } catch (err) {
+function bindDrawButtons(){
+  drawAnyBtn?.addEventListener("click", ()=> doDraw(null));
+
+  document.querySelectorAll("[data-draw-series]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const s = btn.getAttribute("data-draw-series");
+      doDraw(s);
+    });
+  });
+
+  btnOpenWall?.addEventListener("click", ()=>{
+    showView("wall");
+    renderWall();
+  });
+
+  btnDrawAgain?.addEventListener("click", ()=>{
+    // 重新抽，先把結果收起一瞬
+    todayResult.classList.add("hidden");
+    setTimeout(()=> doDraw(null), 180);
+  });
+
+  btnSaveNote?.addEventListener("click", ()=>{
+    const card = window.__CURRENT_CARD__;
+    if(!card) return;
+    // 直接打開 modal（等同「回饋這張卡」）
+    openModal(card.id);
+  });
+}
+
+/* --------- wall ---------- */
+
+const grid = $("grid");
+const stats = $("stats");
+let currentTab = "all";
+
+function countCollected(){
+  const ids = Object.keys(store.draws || {});
+  return ids.length;
+}
+
+function renderStats(){
+  const total = MANIFEST.length;
+  const got = countCollected();
+  const pct = total ? Math.round((got/total)*100) : 0;
+  stats.textContent = `已收集 ${got} / ${total}（${pct}%）`;
+}
+
+function makeTile(card){
+  const got = !!store.draws[card.id];
+  const div = document.createElement("div");
+  div.className = "tile";
+  div.setAttribute("data-id", card.id);
+
+  const img = document.createElement("img");
+  img.alt = card.title || card.id;
+
+  if(got){
+    img.src = card.image;
+  }else{
+    // 未抽到：顯示背面金樹
+    img.src = "assets/tree-gold.png";
+    const lock = document.createElement("div");
+    lock.className = "locked-label";
+    lock.textContent = "未抽到";
+    div.appendChild(lock);
+  }
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.textContent = card.badge || card.seriesLabel || card.series || "";
+  div.appendChild(img);
+  div.appendChild(badge);
+
+  div.addEventListener("click", ()=> openModal(card.id));
+  return div;
+}
+
+function renderWall(){
+  renderStats();
+
+  // tabs
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.classList.toggle("active", tab.getAttribute("data-tab") === currentTab);
+  });
+
+  const list = MANIFEST.filter(c=>{
+    if(currentTab === "all") return true;
+    return c.series === currentTab;
+  });
+
+  grid.innerHTML = "";
+  list.forEach(card => grid.appendChild(makeTile(card)));
+
+  // 你之前「故事牆無法滑動」：確保 panel 可滾
+  document.querySelector("#view-wall .panel")?.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function bindTabs(){
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      currentTab = tab.getAttribute("data-tab");
+      renderWall();
+    });
+  });
+}
+
+/* --------- modal / notes / emoji / photo ---------- */
+
+const modal = $("modal");
+const modalImg = $("modal-img");
+const modalClose = $("modal-close");
+const modalBackdrop = $("modal-backdrop");
+const recordLocked = $("record-locked");
+const recordForm = $("record-form");
+
+const noteText = $("note-text");
+const photoInput = $("photo-input");
+const photoPreviewWrap = $("photo-preview-wrap");
+const photoPreview = $("photo-preview");
+const photoRemove = $("photo-remove");
+
+const noteSave = $("note-save");
+const noteClear = $("note-clear");
+const noteMeta = $("note-meta");
+
+const emojiRow = $("emoji-row");
+
+let currentModalId = null;
+
+function openModal(cardId){
+  currentModalId = cardId;
+  const card = MANIFEST.find(c=>c.id===cardId);
+  if(!card) return;
+
+  modalImg.src = card.image;
+
+  const got = !!store.draws[cardId];
+  recordLocked.classList.toggle("hidden", got);
+  recordForm.classList.toggle("hidden", !got);
+
+  // load saved note/photo/emoji
+  noteText.value = store.notes[cardId] || "";
+
+  // emoji active
+  const e = store.emoji[cardId] || "";
+  emojiRow?.querySelectorAll(".emoji-btn").forEach(b=>{
+    b.classList.toggle("active", b.getAttribute("data-emoji") === e);
+  });
+
+  const p = store.photos[cardId];
+  if(p){
+    photoPreviewWrap.classList.remove("hidden");
+    photoPreview.src = p;
+  }else{
+    photoPreviewWrap.classList.add("hidden");
+    photoPreview.src = "";
+  }
+
+  // meta
+  const rec = store.draws[cardId];
+  if(rec){
+    noteMeta.textContent = `心情：${store.emoji[cardId] || "—"} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+  }else{
+    noteMeta.textContent = "";
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function closeModal(){
+  modal.classList.add("hidden");
+  currentModalId = null;
+}
+
+function bindModal(){
+  modalClose?.addEventListener("click", closeModal);
+  modalBackdrop?.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
+  });
+
+  // emoji click -> float animation + saved
+  emojiRow?.querySelectorAll(".emoji-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      if(!currentModalId) return;
+      const em = btn.getAttribute("data-emoji");
+      store.emoji[currentModalId] = em;
+      saveStore(store);
+
+      emojiRow.querySelectorAll(".emoji-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // 「按自己回饋應該有反應」：飄起來
+      const floater = document.createElement("div");
+      floater.className = "float-emoji";
+      floater.textContent = em;
+      document.body.appendChild(floater);
+      setTimeout(()=> floater.remove(), 900);
+
+      toast("已記下");
+      // refresh meta
+      const rec = store.draws[currentModalId];
+      if(rec){
+        noteMeta.textContent = `心情：${em} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+      }
+    });
+  });
+
+  noteSave?.addEventListener("click", ()=>{
+    if(!currentModalId) return;
+    store.notes[currentModalId] = noteText.value || "";
+    saveStore(store);
+
+    // 「保存要有反應」：toast + 按鈕短暫變字
+    const old = noteSave.textContent;
+    noteSave.textContent = "已保存 ✓";
+    toast("已保存");
+    setTimeout(()=> noteSave.textContent = old, 850);
+  });
+
+  noteClear?.addEventListener("click", ()=>{
+    if(!currentModalId) return;
+    delete store.notes[currentModalId];
+    delete store.photos[currentModalId];
+    delete store.emoji[currentModalId];
+    saveStore(store);
+
+    noteText.value = "";
+    photoPreviewWrap.classList.add("hidden");
+    photoPreview.src = "";
+    emojiRow?.querySelectorAll(".emoji-btn").forEach(b=>b.classList.remove("active"));
+    toast("已清除");
+    // refresh meta
+    const rec = store.draws[currentModalId];
+    if(rec){
+      noteMeta.textContent = `心情：— ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+    }
+  });
+
+  photoInput?.addEventListener("change", async ()=>{
+    if(!currentModalId) return;
+    const file = photoInput.files?.[0];
+    if(!file) return;
+
+    const dataUrl = await shrinkImageToDataURL(file, 1280, 0.86);
+    store.photos[currentModalId] = dataUrl;
+    saveStore(store);
+
+    photoPreviewWrap.classList.remove("hidden");
+    photoPreview.src = dataUrl;
+    toast("照片已加入");
+    photoInput.value = "";
+  });
+
+  photoRemove?.addEventListener("click", ()=>{
+    if(!currentModalId) return;
+    delete store.photos[currentModalId];
+    saveStore(store);
+
+    photoPreviewWrap.classList.add("hidden");
+    photoPreview.src = "";
+    toast("照片已移除");
+  });
+}
+
+function shrinkImageToDataURL(file, maxSize, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      img.onload = ()=>{
+        let { width:w, height:h } = img;
+        const scale = Math.min(1, maxSize / Math.max(w,h));
+        w = Math.round(w*scale);
+        h = Math.round(h*scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* --------- about export/import ---------- */
+
+function bindAbout(){
+  $("reset-intro")?.addEventListener("click", ()=>{
+    resetIntroSeen();
+    toast("已重置迎接畫面");
+  });
+
+  $("export-data")?.addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify(store, null, 2)], { type:"application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kana-records-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  $("import-data")?.addEventListener("change", async ()=>{
+    const f = $("import-data").files?.[0];
+    if(!f) return;
+    const text = await f.text();
+    try{
+      const obj = JSON.parse(text);
+      store = {
+        draws: obj.draws || {},
+        notes: obj.notes || {},
+        photos: obj.photos || {},
+        emoji: obj.emoji || {},
+      };
+      saveStore(store);
+      toast("已匯入");
+      renderWall();
+    }catch{
+      toast("匯入失敗：檔案格式不正確");
+    }finally{
+      $("import-data").value = "";
+    }
+  });
+}
+
+/* --------- boot ---------- */
+
+(async function boot(){
+  bindNav();
+  bindDrawButtons();
+  bindTabs();
+  bindModal();
+  bindAbout();
+
+  // intro logic
+  const seen = localStorage.getItem(INTRO_SEEN_KEY) === "1";
+  if(!seen){
+    showView("intro");
+  }else{
+    showView("today");
+  }
+
+  btnInto?.addEventListener("click", async ()=>{
+    // 船跑太快問題：先播放船 2.6s，再進今天
+    await playBoatThenEnter();
+    markIntroSeen();
+    showView("today");
+  });
+
+  // load manifest
+  try{
+    MANIFEST = await loadManifest();
+
+    // normalize fields (兼容你不同版本的 manifest)
+    MANIFEST = MANIFEST.map(c => ({
+      id: c.id || c.key,
+      series: (c.series || c.category || "").toLowerCase(),
+      image: c.image || c.img || c.path,
+      title: c.title || c.name || c.id,
+      badge: c.badge || (c.series ? c.series[0].toUpperCase()+c.series.slice(1) : ""),
+      seriesLabel: c.seriesLabel || "",
+    })).filter(c => c.id && c.image);
+
+    // first render if already in wall
+    if(!views.wall.classList.contains("hidden")) renderWall();
+
+  }catch(err){
     console.error(err);
-    alert("cards_manifest.json 讀取失敗，請確認檔案存在且格式正確。");
-    cards = [];
+    toast("卡片清單讀取失敗（cards_manifest.json）");
   }
-
-  bindSeriesChips();
-
-  if (isIntroSeen()) {
-    // still show intro briefly then jump (app-like)
-    setTimeout(() => goToday(), 450);
-  }
-
-  // Ensure intro paper shows even if animation blocked
-  setTimeout(() => introPaper.classList.remove("hidden"), 3200);
 })();
