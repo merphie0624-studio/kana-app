@@ -13,7 +13,9 @@ const views = {
 function showView(name){
   Object.values(views).forEach(v => v.classList.add("hidden"));
   views[name].classList.remove("hidden");
-  window.scrollTo({ top: 0, behavior: "instant" });
+
+  // iOS Safari 對 behavior:"instant" 不穩，改成穩定寫法
+  try { window.scrollTo(0, 0); } catch {}
 }
 
 function $(id){ return document.getElementById(id); }
@@ -30,7 +32,6 @@ function toast(msg){
 /* --------- data ---------- */
 
 async function loadManifest(){
-  // cards_manifest.json should exist in repo root
   const res = await fetch("cards_manifest.json", { cache: "no-store" });
   if(!res.ok) throw new Error("cards_manifest.json not found");
   const data = await res.json();
@@ -70,15 +71,26 @@ function todayISO(){
 const btnInto = $("btn-into");
 const boatLayer = $("boat-layer");
 
-async function playBoatThenEnter(){
-  // 船「不要太快看不到」：用 2.6s + 0.5s buffer
+let boatPlayedThisOpen = false;
+
+// 船動畫時間（要跟你 CSS 的動畫時間一致）
+// 你如果用我給你的 CSS：5.8s
+const BOAT_MS = 5800;
+
+// 讓船「進到 Intro 就先跑一次」，但只跑一次
+async function playBoatOnceAtIntro(){
+  if(!boatLayer || boatPlayedThisOpen) return;
+  boatPlayedThisOpen = true;
+
+  // 確保可見並播放
   boatLayer.classList.remove("hidden");
   boatLayer.classList.add("play");
-  // 同時讓 intro 文字稍微淡出（像退潮）
-  views.intro.querySelector(".paper.intro")?.classList.add("fade-out-soft");
 
-  await new Promise(r => setTimeout(r, 3100));
+  // 跑完之後淡出（不要突然消失）
+  await new Promise(r => setTimeout(r, BOAT_MS + 150));
   boatLayer.classList.remove("play");
+
+  // 這裡不強制 hidden，讓它留在那（若你想完全消失可改回 hidden）
   boatLayer.classList.add("hidden");
 }
 
@@ -87,6 +99,34 @@ function markIntroSeen(){
 }
 function resetIntroSeen(){
   localStorage.removeItem(INTRO_SEEN_KEY);
+}
+
+/* --------- drawer (global) ---------- */
+
+function ensureDrawerGlobal(){
+  const drawer = $("drawer");
+  if(!drawer) return;
+
+  // 重要：drawer 原本在 view-today 內，
+  // 切到 wall/about 時 view-today 被 hidden (display:none)，drawer 也一起沒了
+  // → 我們把 drawer 移到 body，讓任何 view 都能開
+  if(drawer.parentElement !== document.body){
+    document.body.appendChild(drawer);
+  }
+}
+
+function openDrawer(){
+  const d = $("drawer");
+  if(!d) return;
+  d.classList.remove("hidden");
+  d.setAttribute("aria-hidden","false");
+}
+
+function closeDrawer(){
+  const d = $("drawer");
+  if(!d) return;
+  d.classList.add("hidden");
+  d.setAttribute("aria-hidden","true");
 }
 
 /* --------- UI wiring ---------- */
@@ -108,8 +148,12 @@ function bindNav(){
   // mobile drawer
   const burgerIds = ["burger","burger2","burger3"];
   burgerIds.forEach(id=>{
-    $(id)?.addEventListener("click", openDrawer);
+    $(id)?.addEventListener("click", ()=>{
+      ensureDrawerGlobal();
+      openDrawer();
+    });
   });
+
   $("drawer-close")?.addEventListener("click", closeDrawer);
   $("drawer-backdrop")?.addEventListener("click", closeDrawer);
 
@@ -122,17 +166,6 @@ function bindNav(){
       if(go==="about") showView("about");
     });
   });
-}
-
-function openDrawer(){
-  const d = $("drawer");
-  d?.classList.remove("hidden");
-  d?.setAttribute("aria-hidden","false");
-}
-function closeDrawer(){
-  const d = $("drawer");
-  d?.classList.add("hidden");
-  d?.setAttribute("aria-hidden","true");
 }
 
 /* --------- draw logic ---------- */
@@ -167,20 +200,21 @@ function recordDraw(cardId){
 
 function renderTodayResult(card){
   todayImg.src = card.image;
-  todayImg.onload = () => {}; // keep
   todayResult.classList.remove("hidden");
 
   const rec = store.draws[card.id];
   const first = rec?.first || todayISO();
   const last  = rec?.last  || todayISO();
   const count = rec?.count || 1;
-  todayMeta.textContent = `抽到日期：${todayISO()} ｜ 第一次相遇：${first} ｜ 最近一次：${last} ｜ 相遇次數：${count}`;
+  todayMeta.textContent =
+    `抽到日期：${todayISO()} ｜ 第一次相遇：${first} ｜ 最近一次：${last} ｜ 相遇次數：${count}`;
 
-  // 「抽完等一下再浮現三個按鈕」
-  resultActions.classList.add("hidden");
-  setTimeout(()=> resultActions.classList.remove("hidden"), 700);
+  // 抽完先「停一下」再浮現按鈕（你要的手感）
+  if(resultActions){
+    resultActions.classList.add("hidden");
+    setTimeout(()=> resultActions.classList.remove("hidden"), 900); // 比 700 再更有「停下來」的感覺
+  }
 
-  // 記住目前卡
   window.__CURRENT_CARD__ = card;
 }
 
@@ -190,9 +224,10 @@ async function doDraw(series=null){
     toast("這個系列目前還沒有卡");
     return;
   }
-  // 小小停頓，讓抽卡感不要太突兀
+
+  // 小停頓
   toast("…");
-  await new Promise(r=>setTimeout(r, 220));
+  await new Promise(r=>setTimeout(r, 260));
 
   const card = pickRandom(pool);
   recordDraw(card.id);
@@ -223,7 +258,6 @@ function bindDrawButtons(){
   btnSaveNote?.addEventListener("click", ()=>{
     const card = window.__CURRENT_CARD__;
     if(!card) return;
-    // 直接打開 modal（等同「回饋這張卡」）
     openModal(card.id);
   });
 }
@@ -243,7 +277,7 @@ function renderStats(){
   const total = MANIFEST.length;
   const got = countCollected();
   const pct = total ? Math.round((got/total)*100) : 0;
-  stats.textContent = `已收集 ${got} / ${total}（${pct}%）`;
+  if(stats) stats.textContent = `已收集 ${got} / ${total}（${pct}%）`;
 }
 
 function makeTile(card){
@@ -258,8 +292,9 @@ function makeTile(card){
   if(got){
     img.src = card.image;
   }else{
-    // 未抽到：顯示背面金樹
+    // 未抽到：顯示背面（你現在先用 tree-gold.png）
     img.src = "assets/tree-gold.png";
+
     const lock = document.createElement("div");
     lock.className = "locked-label";
     lock.textContent = "未抽到";
@@ -269,6 +304,7 @@ function makeTile(card){
   const badge = document.createElement("div");
   badge.className = "badge";
   badge.textContent = card.badge || card.seriesLabel || card.series || "";
+
   div.appendChild(img);
   div.appendChild(badge);
 
@@ -279,7 +315,6 @@ function makeTile(card){
 function renderWall(){
   renderStats();
 
-  // tabs
   document.querySelectorAll(".tab").forEach(tab=>{
     tab.classList.toggle("active", tab.getAttribute("data-tab") === currentTab);
   });
@@ -289,11 +324,13 @@ function renderWall(){
     return c.series === currentTab;
   });
 
+  if(!grid) return;
   grid.innerHTML = "";
   list.forEach(card => grid.appendChild(makeTile(card)));
 
-  // 你之前「故事牆無法滑動」：確保 panel 可滾
-  document.querySelector("#view-wall .panel")?.scrollTo({ top: 0, behavior: "instant" });
+  // 防止「故事牆卡住不動」：確保 scroll-panel 可滾，並回到頂部
+  const p = document.querySelector("#view-wall .scroll-panel");
+  if(p) p.scrollTop = 0;
 }
 
 function bindTabs(){
@@ -336,11 +373,11 @@ function openModal(cardId){
   modalImg.src = card.image;
 
   const got = !!store.draws[cardId];
-  recordLocked.classList.toggle("hidden", got);
-  recordForm.classList.toggle("hidden", !got);
+  recordLocked?.classList.toggle("hidden", got);
+  recordForm?.classList.toggle("hidden", !got);
 
   // load saved note/photo/emoji
-  noteText.value = store.notes[cardId] || "";
+  if(noteText) noteText.value = store.notes[cardId] || "";
 
   // emoji active
   const e = store.emoji[cardId] || "";
@@ -349,27 +386,32 @@ function openModal(cardId){
   });
 
   const p = store.photos[cardId];
-  if(p){
-    photoPreviewWrap.classList.remove("hidden");
-    photoPreview.src = p;
-  }else{
-    photoPreviewWrap.classList.add("hidden");
-    photoPreview.src = "";
+  if(photoPreviewWrap && photoPreview){
+    if(p){
+      photoPreviewWrap.classList.remove("hidden");
+      photoPreview.src = p;
+    }else{
+      photoPreviewWrap.classList.add("hidden");
+      photoPreview.src = "";
+    }
   }
 
   // meta
   const rec = store.draws[cardId];
-  if(rec){
-    noteMeta.textContent = `心情：${store.emoji[cardId] || "—"} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
-  }else{
-    noteMeta.textContent = "";
+  if(noteMeta){
+    if(rec){
+      noteMeta.textContent =
+        `心情：${store.emoji[cardId] || "—"} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+    }else{
+      noteMeta.textContent = "";
+    }
   }
 
-  modal.classList.remove("hidden");
+  modal?.classList.remove("hidden");
 }
 
 function closeModal(){
-  modal.classList.add("hidden");
+  modal?.classList.add("hidden");
   currentModalId = null;
 }
 
@@ -377,10 +419,10 @@ function bindModal(){
   modalClose?.addEventListener("click", closeModal);
   modalBackdrop?.addEventListener("click", closeModal);
   document.addEventListener("keydown", (e)=>{
-    if(e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
+    if(e.key === "Escape" && modal && !modal.classList.contains("hidden")) closeModal();
   });
 
-  // emoji click -> float animation + saved
+  // emoji click -> float animation + save
   emojiRow?.querySelectorAll(".emoji-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       if(!currentModalId) return;
@@ -391,7 +433,7 @@ function bindModal(){
       emojiRow.querySelectorAll(".emoji-btn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
 
-      // 「按自己回饋應該有反應」：飄起來
+      // 飄起來
       const floater = document.createElement("div");
       floater.className = "float-emoji";
       floater.textContent = em;
@@ -399,20 +441,21 @@ function bindModal(){
       setTimeout(()=> floater.remove(), 900);
 
       toast("已記下");
+
       // refresh meta
       const rec = store.draws[currentModalId];
-      if(rec){
-        noteMeta.textContent = `心情：${em} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+      if(noteMeta && rec){
+        noteMeta.textContent =
+          `心情：${em} ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
       }
     });
   });
 
   noteSave?.addEventListener("click", ()=>{
     if(!currentModalId) return;
-    store.notes[currentModalId] = noteText.value || "";
+    store.notes[currentModalId] = noteText?.value || "";
     saveStore(store);
 
-    // 「保存要有反應」：toast + 按鈕短暫變字
     const old = noteSave.textContent;
     noteSave.textContent = "已保存 ✓";
     toast("已保存");
@@ -426,15 +469,18 @@ function bindModal(){
     delete store.emoji[currentModalId];
     saveStore(store);
 
-    noteText.value = "";
-    photoPreviewWrap.classList.add("hidden");
-    photoPreview.src = "";
+    if(noteText) noteText.value = "";
+    if(photoPreviewWrap && photoPreview){
+      photoPreviewWrap.classList.add("hidden");
+      photoPreview.src = "";
+    }
     emojiRow?.querySelectorAll(".emoji-btn").forEach(b=>b.classList.remove("active"));
     toast("已清除");
-    // refresh meta
+
     const rec = store.draws[currentModalId];
-    if(rec){
-      noteMeta.textContent = `心情：— ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
+    if(noteMeta && rec){
+      noteMeta.textContent =
+        `心情：— ｜ 第一次相遇：${rec.first} ｜ 最近一次：${rec.last} ｜ 相遇次數：${rec.count || 1}`;
     }
   });
 
@@ -447,8 +493,10 @@ function bindModal(){
     store.photos[currentModalId] = dataUrl;
     saveStore(store);
 
-    photoPreviewWrap.classList.remove("hidden");
-    photoPreview.src = dataUrl;
+    if(photoPreviewWrap && photoPreview){
+      photoPreviewWrap.classList.remove("hidden");
+      photoPreview.src = dataUrl;
+    }
     toast("照片已加入");
     photoInput.value = "";
   });
@@ -458,8 +506,10 @@ function bindModal(){
     delete store.photos[currentModalId];
     saveStore(store);
 
-    photoPreviewWrap.classList.add("hidden");
-    photoPreview.src = "";
+    if(photoPreviewWrap && photoPreview){
+      photoPreviewWrap.classList.add("hidden");
+      photoPreview.src = "";
+    }
     toast("照片已移除");
   });
 }
@@ -511,7 +561,8 @@ function bindAbout(){
   });
 
   $("import-data")?.addEventListener("change", async ()=>{
-    const f = $("import-data").files?.[0];
+    const input = $("import-data");
+    const f = input?.files?.[0];
     if(!f) return;
     const text = await f.text();
     try{
@@ -528,7 +579,7 @@ function bindAbout(){
     }catch{
       toast("匯入失敗：檔案格式不正確");
     }finally{
-      $("import-data").value = "";
+      if(input) input.value = "";
     }
   });
 }
@@ -536,6 +587,9 @@ function bindAbout(){
 /* --------- boot ---------- */
 
 (async function boot(){
+  // drawer 必須先全域化，否則 wall/about 看不到
+  ensureDrawerGlobal();
+
   bindNav();
   bindDrawButtons();
   bindTabs();
@@ -546,13 +600,15 @@ function bindAbout(){
   const seen = localStorage.getItem(INTRO_SEEN_KEY) === "1";
   if(!seen){
     showView("intro");
+    // ✅ 一進 Intro 就先跑船一次（你要的「先停下來」）
+    // 讓畫面先穩住 200ms 再跑，更有質感
+    setTimeout(()=> { playBoatOnceAtIntro(); }, 200);
   }else{
     showView("today");
   }
 
-  btnInto?.addEventListener("click", async ()=>{
-    // 船跑太快問題：先播放船 2.6s，再進今天
-    await playBoatThenEnter();
+  // 點「靠岸」：不再跑船（船已經跑過了）
+  btnInto?.addEventListener("click", ()=>{
     markIntroSeen();
     showView("today");
   });
@@ -571,7 +627,7 @@ function bindAbout(){
       seriesLabel: c.seriesLabel || "",
     })).filter(c => c.id && c.image);
 
-    // first render if already in wall
+    // 如果當下就在 wall 就渲染
     if(!views.wall.classList.contains("hidden")) renderWall();
 
   }catch(err){
