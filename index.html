@@ -2,12 +2,14 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>靠岸｜彼岸の島</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
   <main id="app" class="app">
+
     <!-- Intro -->
     <section id="view-intro" class="view hidden" aria-label="迎接">
       <div class="paper intro fade-in">
@@ -23,11 +25,12 @@
 也不是答案。
 
 只是讓我
-可以稍微停下來
+可以稍微停下來，
 歇腳的地方。
 
 如果我願意，
 可以先靠岸。</pre>
+
         <button id="btn-into" class="btn primary" type="button">靠岸</button>
       </div>
     </section>
@@ -39,9 +42,9 @@
           <div class="brand-title">靠岸</div>
           <div class="brand-sub">彼岸の島</div>
         </div>
-        <nav class="nav">
+        <nav class="nav" aria-label="主選單">
           <button class="btn ghost" id="nav-today" type="button" aria-current="page">今天</button>
-          <button class="btn ghost" id="nav-wall" type="button">卡片牆</button>
+          <button class="btn ghost" id="nav-wall" type="button">我的故事牆</button>
           <button class="btn ghost" id="nav-about" type="button">關於</button>
         </nav>
       </header>
@@ -52,7 +55,8 @@
 
         <div class="actions">
           <button class="btn primary" id="draw-any" type="button">抽一張卡（全部系列）</button>
-          <div class="seg">
+
+          <div class="seg" aria-label="系列抽卡">
             <button class="btn" data-draw-series="flow" type="button">抽 Flow</button>
             <button class="btn" data-draw-series="free" type="button">抽 Free</button>
             <button class="btn" data-draw-series="for" type="button">抽 For</button>
@@ -64,12 +68,10 @@
             <img id="today-img" class="card-img" alt="抽到的卡片" />
           </div>
 
-          <div class="meta" id="today-meta"></div>
+          <div id="drawDate" class="draw-date"></div>
 
           <div class="result-actions">
-            <!-- ✅ 這顆會開啟「寫下/照片」Modal（在 app.js 內處理） -->
             <button class="btn" id="btn-save-note" type="button">回應這張卡</button>
-
             <button class="btn ghost" id="btn-open-wall" type="button">我的故事牆</button>
             <button class="btn ghost" id="btn-draw-again" type="button">再次相遇</button>
           </div>
@@ -78,15 +80,15 @@
     </section>
 
     <!-- Wall -->
-    <section id="view-wall" class="view hidden" aria-label="卡片牆">
+    <section id="view-wall" class="view hidden" aria-label="我的故事牆">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-title">卡片牆</div>
+          <div class="brand-title">我的故事牆</div>
           <div class="brand-sub">收集・歸位</div>
         </div>
-        <nav class="nav">
+        <nav class="nav" aria-label="主選單">
           <button class="btn ghost" id="nav2-today" type="button">今天</button>
-          <button class="btn ghost" id="nav2-wall" type="button" aria-current="page">卡片牆</button>
+          <button class="btn ghost" id="nav2-wall" type="button" aria-current="page">我的故事牆</button>
           <button class="btn ghost" id="nav2-about" type="button">關於</button>
         </nav>
       </header>
@@ -107,6 +109,7 @@
       <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="卡片">
         <div class="modal-card">
           <button id="modal-close" class="icon-btn" type="button" aria-label="關閉">✕</button>
+
           <div class="modal-body">
             <div class="card-wrap">
               <img id="modal-img" class="card-img" alt="卡片" />
@@ -119,7 +122,7 @@
               </div>
 
               <div id="record-locked" class="locked hidden">
-                這張卡還沒被抽到。<br/>
+                這張卡還沒被抽到。<br />
                 你可以先把它放在心裡，或回到「今天」再抽一次。
               </div>
 
@@ -151,6 +154,7 @@
 
           </div>
         </div>
+
         <div class="backdrop" id="modal-backdrop"></div>
       </div>
     </section>
@@ -162,9 +166,9 @@
           <div class="brand-title">關於</div>
           <div class="brand-sub">靠岸｜彼岸の島</div>
         </div>
-        <nav class="nav">
+        <nav class="nav" aria-label="主選單">
           <button class="btn ghost" id="nav3-today" type="button">今天</button>
-          <button class="btn ghost" id="nav3-wall" type="button">卡片牆</button>
+          <button class="btn ghost" id="nav3-wall" type="button">我的故事牆</button>
           <button class="btn ghost" id="nav3-about" type="button" aria-current="page">關於</button>
         </nav>
       </header>
@@ -186,6 +190,7 @@
         <p class="small">匯出/匯入是為了之後換手機或備份用。初期先用簡單方式。</p>
       </div>
     </section>
+
   </main>
 
   <script src="app.js"></script>
