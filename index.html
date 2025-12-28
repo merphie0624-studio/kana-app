@@ -9,11 +9,32 @@
 
 <body>
   <main id="app" class="app">
-
     <!-- Intro -->
-    <section id="view-intro" class="view hidden" aria-label="迎接">
-      <div class="paper intro fade-in">
-        <pre class="intro-text">有些地方，
+    <section id="view-intro" class="view" aria-label="迎接">
+      <div class="intro-stage">
+        <div class="boat-track" aria-hidden="true">
+          <!-- Inline SVG boat (no file needed) -->
+          <svg class="boat" viewBox="0 0 220 120" role="img" aria-label="小船">
+            <defs>
+              <linearGradient id="sailA" x1="0" x2="1">
+                <stop offset="0" stop-color="#79B7FF" />
+                <stop offset="1" stop-color="#2E6BE6" />
+              </linearGradient>
+              <linearGradient id="sailB" x1="0" x2="1">
+                <stop offset="0" stop-color="#FF8A5A" />
+                <stop offset="1" stop-color="#D84A2B" />
+              </linearGradient>
+            </defs>
+            <path d="M105 15 L105 88" stroke="rgba(255,255,255,.75)" stroke-width="3" />
+            <path d="M110 18 C145 30 155 62 110 76 Z" fill="url(#sailA)" opacity=".92"/>
+            <path d="M103 26 C78 35 62 56 98 76 Z" fill="url(#sailB)" opacity=".92"/>
+            <path d="M45 88 C70 108 150 108 175 88 L160 103 C140 113 80 113 60 103 Z" fill="rgba(255,255,255,.9)"/>
+            <path d="M55 92 C85 105 135 105 165 92" stroke="rgba(0,0,0,.12)" stroke-width="3" fill="none"/>
+          </svg>
+        </div>
+
+        <div class="paper intro hidden" id="introPaper">
+          <pre class="intro-text">有些地方，
 或許不想要被找到。
 
 只是有時，
@@ -30,47 +51,83 @@
 
 如果我願意，
 可以先靠岸。</pre>
-
-        <button id="btn-into" class="btn primary" type="button">靠岸</button>
+          <button id="btn-into" class="btn primary" type="button">靠岸</button>
+        </div>
       </div>
     </section>
 
     <!-- Today -->
     <section id="view-today" class="view hidden" aria-label="靠岸">
       <header class="topbar">
+        <button class="icon-btn" id="hamburger" type="button" aria-label="選單">☰</button>
         <div class="brand">
           <div class="brand-title">靠岸</div>
           <div class="brand-sub">彼岸の島</div>
         </div>
-        <nav class="nav" aria-label="主選單">
-          <button class="btn ghost" id="nav-today" type="button" aria-current="page">今天</button>
-          <button class="btn ghost" id="nav-wall" type="button">我的故事牆</button>
-          <button class="btn ghost" id="nav-about" type="button">關於</button>
-        </nav>
       </header>
 
-      <div class="panel">
-        <h1 class="question">今天的我，想要接住自己什麼？</h1>
-        <p class="hint">可以抽一張卡，或先在這裡停一下。</p>
+      <!-- Drawer -->
+      <aside id="drawer" class="drawer hidden" aria-label="選單">
+        <div class="drawer-card">
+          <div class="drawer-title">靠岸｜彼岸の島</div>
+          <button class="drawer-item" id="nav-story" type="button">故事（主頁）</button>
+          <button class="drawer-item" id="nav-today" type="button">今天（抽卡）</button>
+          <button class="drawer-item" id="nav-wall" type="button">我的故事牆</button>
+          <button class="drawer-item" id="nav-about" type="button">關於</button>
+          <button class="drawer-close btn ghost" id="drawer-close" type="button">關閉</button>
+        </div>
+        <div class="drawer-backdrop" id="drawer-backdrop"></div>
+      </aside>
 
-        <div class="actions">
-          <button class="btn primary" id="draw-any" type="button">抽一張卡（全部系列）</button>
+      <div class="panel panel-today">
+        <h1 class="question">今天的我，想被接住什麼？</h1>
+        <p class="hint">你可以抽一張卡，或先在這裡停一下。</p>
 
-          <div class="seg" aria-label="系列抽卡">
-            <button class="btn" data-draw-series="flow" type="button">抽 Flow</button>
-            <button class="btn" data-draw-series="free" type="button">抽 Free</button>
-            <button class="btn" data-draw-series="for" type="button">抽 For</button>
-          </div>
+        <!-- Series selector (no "抽 Flow/Free/For" text) -->
+        <div class="series-row" aria-label="系列">
+          <button class="series-chip" data-series="flow" type="button">
+            <div class="chip-title">Flow</div>
+            <div class="chip-sub">流動・訊息</div>
+          </button>
+          <button class="series-chip" data-series="free" type="button">
+            <div class="chip-title">Free</div>
+            <div class="chip-sub">自由・放下</div>
+          </button>
+          <button class="series-chip" data-series="for" type="button">
+            <div class="chip-title">For</div>
+            <div class="chip-sub">收與放・來與往</div>
+          </button>
+          <button class="series-chip disabled" type="button" aria-disabled="true">
+            <div class="chip-title">Forever</div>
+            <div class="chip-sub">即將靠岸</div>
+          </button>
         </div>
 
+        <div class="draw-zone">
+          <button class="btn primary big" id="draw-any" type="button">抽一張卡</button>
+
+          <!-- subtle tree background at bottom -->
+          <div class="tree-fade" aria-hidden="true"></div>
+        </div>
+
+        <!-- Loading -->
+        <section id="today-loading" class="loading hidden" aria-label="讀取中">
+          <div class="loading-card">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="loading-text">讓這張卡，慢慢浮上來…</div>
+          </div>
+        </section>
+
+        <!-- Result -->
         <section id="today-result" class="result hidden" aria-label="抽到的卡">
           <div class="card-wrap">
             <img id="today-img" class="card-img" alt="抽到的卡片" />
           </div>
 
-          <div id="drawDate" class="draw-date"></div>
+          <div class="meta-line" id="drawDate"></div>
 
-          <div class="result-actions">
+          <!-- buttons appear AFTER 5 seconds -->
+          <div class="result-actions hidden" id="result-actions">
             <button class="btn" id="btn-save-note" type="button">回應這張卡</button>
             <button class="btn ghost" id="btn-open-wall" type="button">我的故事牆</button>
             <button class="btn ghost" id="btn-draw-again" type="button">再次相遇</button>
@@ -82,15 +139,11 @@
     <!-- Wall -->
     <section id="view-wall" class="view hidden" aria-label="我的故事牆">
       <header class="topbar">
+        <button class="icon-btn" id="hamburger2" type="button" aria-label="選單">☰</button>
         <div class="brand">
           <div class="brand-title">我的故事牆</div>
           <div class="brand-sub">收集・歸位</div>
         </div>
-        <nav class="nav" aria-label="主選單">
-          <button class="btn ghost" id="nav2-today" type="button">今天</button>
-          <button class="btn ghost" id="nav2-wall" type="button" aria-current="page">我的故事牆</button>
-          <button class="btn ghost" id="nav2-about" type="button">關於</button>
-        </nav>
       </header>
 
       <div class="panel">
@@ -102,14 +155,14 @@
         </div>
 
         <div class="stats" id="stats"></div>
+
         <div id="grid" class="grid" aria-label="卡片列表"></div>
       </div>
 
       <!-- Card modal -->
       <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="卡片">
         <div class="modal-card">
-          <button id="modal-close" class="icon-btn" type="button" aria-label="關閉">✕</button>
-
+          <button id="modal-close" class="icon-btn close-x" type="button" aria-label="關閉">✕</button>
           <div class="modal-body">
             <div class="card-wrap">
               <img id="modal-img" class="card-img" alt="卡片" />
@@ -118,15 +171,23 @@
             <div class="record">
               <div class="record-head">
                 <div class="record-title">寫下</div>
-                <div class="record-sub">你也可以留白，有時，留白是另一種給自己的禮物。</div>
+                <div class="record-sub">你也可以留白；有時，留白是另一種給自己的禮物。</div>
               </div>
 
               <div id="record-locked" class="locked hidden">
-                這張卡還沒被抽到。<br />
+                這張卡還沒被抽到。<br/>
                 你可以先把它放在心裡，或回到「今天」再抽一次。
               </div>
 
               <div id="record-form" class="record-form hidden">
+                <div class="mood-row" aria-label="心情符號">
+                  <button class="mood" data-mood="🙂" type="button">🙂</button>
+                  <button class="mood" data-mood="🥹" type="button">🥹</button>
+                  <button class="mood" data-mood="😌" type="button">😌</button>
+                  <button class="mood" data-mood="💛" type="button">💛</button>
+                  <button class="mood" data-mood="🫶" type="button">🫶</button>
+                </div>
+
                 <label class="field">
                   <div class="label">文字</div>
                   <textarea id="note-text" rows="5" placeholder="今天的感受、感恩的人事物、顯化的小確幸…"></textarea>
@@ -135,7 +196,7 @@
                 <label class="field">
                   <div class="label">照片（可選）</div>
                   <input id="photo-input" type="file" accept="image/*" />
-                  <div class="small">會自動縮小後存放在你的裝置上（不會上傳到網路）。</div>
+                  <div class="small">會縮小後只存放在你的裝置上（不會上傳）。</div>
                 </label>
 
                 <div id="photo-preview-wrap" class="photo hidden">
@@ -154,7 +215,6 @@
 
           </div>
         </div>
-
         <div class="backdrop" id="modal-backdrop"></div>
       </div>
     </section>
@@ -162,20 +222,16 @@
     <!-- About -->
     <section id="view-about" class="view hidden" aria-label="關於">
       <header class="topbar">
+        <button class="icon-btn" id="hamburger3" type="button" aria-label="選單">☰</button>
         <div class="brand">
           <div class="brand-title">關於</div>
           <div class="brand-sub">靠岸｜彼岸の島</div>
         </div>
-        <nav class="nav" aria-label="主選單">
-          <button class="btn ghost" id="nav3-today" type="button">今天</button>
-          <button class="btn ghost" id="nav3-wall" type="button">我的故事牆</button>
-          <button class="btn ghost" id="nav3-about" type="button" aria-current="page">關於</button>
-        </nav>
       </header>
 
       <div class="panel">
         <h2>這是一個很小的地方</h2>
-        <p>你可以在這裡抽一張卡，慢慢收集，並在卡片裡寫下自己的紀錄。</p>
+        <p>你可以在這裡抽一張卡、慢慢收集，並在卡片裡寫下自己的紀錄。</p>
         <p class="small">所有內容都只會保存在你的裝置（瀏覽器）裡。清除瀏覽器資料會一起消失。</p>
 
         <hr class="sep" />
@@ -187,10 +243,9 @@
           <input id="import-data" type="file" accept="application/json" class="hidden" />
         </div>
 
-        <p class="small">匯出/匯入是為了之後換手機或備份用。初期先用簡單方式。</p>
+        <p class="small">匯出/匯入用於換手機或備份。初期先用簡單方式。</p>
       </div>
     </section>
-
   </main>
 
   <script src="app.js"></script>
